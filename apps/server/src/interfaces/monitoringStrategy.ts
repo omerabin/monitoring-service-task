@@ -1,0 +1,26 @@
+/**
+ * MonitoringStrategy interface.
+ *
+ * Concrete strategies (local OS / fake DB) implement this contract.
+ * Services consume this interface without knowing the underlying source.
+ */
+export interface MonitoringStrategy {
+    getCpu(): Promise<number>;
+    getMemory(): Promise<number>;
+    getDisk(): Promise<number>;
+}
+
+/**
+ * LoggerDataProvider interface.
+ *
+ * Abstraction over the file-based logging mechanism used during metric cycles.
+ * Concrete implementation must write entries to a session-scoped log file.
+ */
+export interface LoggerDataProvider {
+    log(sessionId: string, data: string): void;
+}
+
+/**
+ * Discriminated union of valid monitoring targets.
+ */
+export type MonitoringTarget = 'local' | 'db';
