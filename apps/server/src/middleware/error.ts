@@ -1,59 +1,31 @@
 import { Request, Response, NextFunction } from 'express';
 import { Logger } from '../interfaces/logger';
+import { HttpError, ErrorCode } from '../errors/HttpError';
 
-/**
- * Custom application error class.
- *
- * Use this to distinguish operational errors (expected) from programmer
- * errors (unexpected). The `statusCode` maps directly to the HTTP response status.
- */
-export class AppError extends Error {
-    public readonly statusCode: number;
-    public readonly isOperational: boolean;
-
-    constructor(message: string, statusCode: number, isOperational = true) {
-        super(message);
-        this.statusCode = statusCode;
-        this.isOperational = isOperational;
-        Object.setPrototypeOf(this, new.target.prototype);
-        Error.captureStackTrace(this, this.constructor);
-    }
-}
-
-/**
- * Well-known error types used throughout the application.
- * Throw these (via AppError) to trigger the correct HTTP response.
- */
-export const ErrorCode = {
-    /** Thrown when POST /connect is called before POST /start */
-    SYSTEM_NOT_STARTED: 'SYSTEM_NOT_STARTED',
-    /** Thrown when > 5 concurrent SSE connections are attempted */
-    MAX_CONNECTIONS_EXCEEDED: 'MAX_CONNECTIONS_EXCEEDED',
-} as const;
 
 /**
  * createErrorMiddleware — functional error-handling middleware factory.
  *
- * Developer MUST implement:
- *  - Distinguish AppError (operational) from unknown runtime errors
- *  - Log every error via the injected logger
- *  - Return JSON: { error: string, code?: string }
- *  - Set the correct HTTP status code
+ * Developer MUST implement the returned Express error handler:
+ *  - If `err` is a ZodError → respond 400 with structured field-level issues
+ *    and code ErrorCode.VALIDATION_ERROR
+ *  - If `err` is an HttpError → log it via `logger`, respond with err.statusCode
+ *    and JSON: { error: err.message, code?: string }
+ *  - Otherwise → log as unexpected error, respond 500
  *  - Never leak stack traces to the client in production
  *
  * @param logger - Injected Logger implementation (no console.log)
  */
-export const createErrorMiddleware = (logger: Logger) => {
+export const createErrorMiddleware = ({ logger }: { logger: Logger }) => {
+    void logger;
+    void HttpError;
+    void ErrorCode;
     return (
-        err: unknown,
+        _err: unknown,
         _req: Request,
-        res: Response,
+        _res: Response,
         _next: NextFunction
     ): void => {
-        // TODO: implement error classification, logging, and JSON response
-        void logger;
-        void err;
-        void res;
         throw new Error('createErrorMiddleware not implemented');
     };
 };

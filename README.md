@@ -15,7 +15,7 @@ The service exposes two HTTP routes:
 | Route | Method | Purpose |
 |---|---|---|
 | `/metrics/start` | POST | Initialise the system with CPU/memory/disk config |
-| `/metrics/connect/:objectType/:minAlert` | POST | Open an SSE stream for a given metric type |
+| `/metrics/connect/:resourceType` | POST | Open an SSE stream for a given metric type |
 
 ---
 
@@ -26,18 +26,19 @@ The service exposes two HTTP routes:
 - [ ] **`LocalMonitoringStrategy`** (`src/factories/providerFactory.ts`) — use Node's `os` module to read real CPU, memory, and disk usage.
 - [ ] **`DbMonitoringStrategy`** (`src/factories/providerFactory.ts`) — return random float values (0–100) simulating a remote DB source.
 - [ ] **`LoggerDataProvider`** (`src/factories/providerFactory.ts`) — write metric events to a session-scoped file (`logs/<sessionId>.log`).
-- [ ] **`metricsService.initSystem`** (`src/services/metricsService.ts`) — store the `CreateSystemDto` for later use during metric collection intervals.
+- [ ] **`metricsService.initService`** (`src/services/metricsService.ts`) — store the `StartMonitoringRequest` for later use during metric collection intervals.
 - [ ] **`metricsService.collectMetrics`** (`src/services/metricsService.ts`) — call `strategy.getCpu()`, `strategy.getMemory()`, `strategy.getDisk()`, and return a `SystemMetrics` object.
 - [ ] **Wire `createMetricsService`** inside `createMetricsController` — remove the throw and inject the service properly.
 
 ### `metricsController.start`
-- Parse and validate `CreateSystemDto` from `req.body`.
-- Call `service.initSystem(dto)`.
+- Parse and validate `StartMonitoringRequest` from `req.body`.
+- Call `service.initService(dto)`.
 - Respond `200 { message: 'System started' }`.
 
 ### `metricsController.connect`
 - **Validate** that `/start` has been called. If not, call `next(new AppError('...', 400))` with `ErrorCode.SYSTEM_NOT_STARTED`.
 - **Enforce max 5 connections**. If `sessions.size >= MAX_SSE_CONNECTIONS`, call `next(new AppError('...', 429))` with `ErrorCode.MAX_CONNECTIONS_EXCEEDED`.
+- `req.params.resourceType` is **already validated** as a `ResourceType` by the upstream `validator(ConnectParamsSchema, 'params')` middleware.
 - **Generate a UUID** (v4) for the session.
 - **Set SSE headers**: `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `Connection: keep-alive`.
 - **Register** the session in the `sessions` map.
@@ -45,7 +46,6 @@ The service exposes two HTTP routes:
   1. Call `service.collectMetrics()`.
   2. Stream result via `res.write(`data: ${JSON.stringify(metrics)}\n\n`)`.
   3. Log to file via `loggerDataProvider.log(sessionId, ...)`.
-  4. Evaluate `minAlert` threshold; emit `event: alert` if exceeded.
 - **On disconnect** (`req.on('close', ...)`): clear interval, delete session from map.
 
 ### Error Middleware (`src/middleware/error.ts`)
@@ -123,24 +123,21 @@ npm run build
 
 ---
 
-### `POST /metrics/connect/:objectType/:minAlert`
+### `POST /metrics/connect/:resourceType`
 
 **Params**
-- `objectType` — `"cpu"` | `"memory"` | `"disk"`
-- `minAlert` — numeric threshold (e.g., `80`)
+- `resourceType` — `"cpu"` | `"memory"` | `"disk"`
 
 **SSE Events (streamed every 30 s)**
 ```
 data: {"cpu":{...},"memory":{...},"disk":{...},"timestamp":"..."}
-
-event: alert
-data: {"sessionId":"...","objectType":"cpu","minAlert":80,"currentValue":91.2,"timestamp":"..."}
 ```
 
 **Error responses (JSON)**
 ```json
 { "error": "System not started. Call /start first.", "code": "SYSTEM_NOT_STARTED" }
 { "error": "Maximum SSE connections reached (5).", "code": "MAX_CONNECTIONS_EXCEEDED" }
+{ "error": [{"code": "invalid_enum_value", "path": ["resourceType"], "message": "..."}], "code": "VALIDATION_ERROR" }
 ```
 
 ---
@@ -165,16 +162,15 @@ apps/server/src/
 ├── controllers/
 │   └── metricsController.ts      ← start + connect handlers (implement me)
 ├── services/
-│   └── metricsService.ts         ← initSystem + collectMetrics (implement me)
+│   └── metricsService.ts         ← initService + collectMetrics (implement me)
 ├── factories/
 │   └── providerFactory.ts        ← strategies + logger provider (implement me)
 ├── routes/
-│   └── metrics.ts                ← POST /start, POST /connect/:objectType/:minAlert
+│   └── metrics.ts                ← POST /start, POST /connect/:resourceType
 ├── middleware/
 │   └── error.ts                  ← error handler (implement me)
 ├── dto/
-│   ├── createSystem.ts           ← CreateSystemDto
-│   └── alert.ts                  ← AlertDto
+│   ├── startMonitoring.ts           ← StartMonitoringRequest
 ├── interfaces/
 │   ├── cpu.ts                    ← CpuConfig
 │   ├── memory.ts                 ← MemoryConfig
@@ -183,6 +179,12 @@ apps/server/src/
 │   ├── observer.ts               ← Observer<T>, Subject<T>
 │   ├── logger.ts                 ← Logger interface
 │   └── monitoringStrategy.ts     ← MonitoringStrategy, LoggerDataProvider, MonitoringTarget
+├── validators/
+│   ├── cpuConfig.validator.ts        ← Zod schema for CpuConfig
+│   ├── memoryConfig.validator.ts     ← Zod schema for MemoryConfig
+│   ├── diskConfig.validator.ts       ← Zod schema for DiskConfig
+│   ├── createSystem.validator.ts     ← Zod schema for POST /start body
+│   └── connectParams.validator.ts   ← Zod schema for POST /connect/:resourceType params
 └── types/
-    └── sse.ts                    ← SseSession, SseSessionMap, ObjectType
+    └── sse.ts                    ← SseSession, SseSessionMap, ResourceType
 ```

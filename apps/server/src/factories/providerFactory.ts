@@ -1,9 +1,5 @@
-import { MonitoringStrategy, LoggerDataProvider, MonitoringTarget } from '../interfaces/monitoringStrategy';
-import { Logger } from '../interfaces/logger';
-import { FileLogger } from '../logger';
-import { LocalMonitoringStrategy } from '../strategies/localMonitoringStrategy';
-import { DbMonitoringStrategy } from '../strategies/dbMonitoringStrategy';
-import { createLoggerDataProvider } from '../providers/loggerDataProvider';
+// import { MonitoringStrategy, LoggerDataProvider, MonitoringTarget } from '../interfaces/monitoringStrategy';
+// import { Logger } from '../interfaces/logger';
 
 // ---------------------------------------------------------------------------
 // Provider Factory Interface
@@ -12,39 +8,31 @@ import { createLoggerDataProvider } from '../providers/loggerDataProvider';
 /**
  * ProviderFactory — the DI composition root for all strategy and provider creation.
  *
+ * Developer MUST design and implement `createProviderFactory`.
+ *
  * Rules:
- *  - getLogger()        → returns the shared application-level Logger instance.
- *  - createService()    → returns the appropriate MonitoringStrategy by target.
- *                         Services consume MonitoringStrategy without knowing the source.
- *  - createDataLogger() → returns a fresh LoggerDataProvider for a new SSE session.
+ *  - getLogger()        → return the shared application-level Logger instance.
+ *                         Instantiate it once inside the factory (e.g. new FileLogger()).
+ *  - createService(target) → return the appropriate MonitoringStrategy by target key.
+ *                            Instantiate both strategies once; select by target.
+ *                            Services consume MonitoringStrategy without knowing the source.
+ *  - createDataLogger() → return a fresh LoggerDataProvider for each new SSE session.
+ *                         Call createLoggerDataProvider() (from providers/) each time.
  */
 export interface ProviderFactory {
-    getLogger(): Logger;
-    createService(target: MonitoringTarget): MonitoringStrategy;
-    createDataLogger(): LoggerDataProvider;
 }
 
 // ---------------------------------------------------------------------------
 // Factory Implementation
 // ---------------------------------------------------------------------------
 
+/**
+ * createProviderFactory — builds and returns the application DI root.
+ *
+ * Developer MUST implement this function following the rules above.
+ * All strategies and the logger should be instantiated inside this factory
+ * so app.ts only needs to call createProviderFactory() once.
+ */
 export const createProviderFactory = (): ProviderFactory => {
-    // Strategies are instantiated once and selected by target key.
-    const strategies: Record<MonitoringTarget, MonitoringStrategy> = {
-        local: LocalMonitoringStrategy(),
-        db: DbMonitoringStrategy(),
-    };
-
-    // Logger is created once inside the factory — accessible to all consumers via getLogger().
-    const logger: Logger = new FileLogger();
-
-    // Define each method before returning so the return is purely declarative.
-    const getLogger = (): Logger => logger;
-
-    const createService = (target: MonitoringTarget): MonitoringStrategy =>
-        strategies[target];
-
-    const createDataLogger = (): LoggerDataProvider => createLoggerDataProvider();
-
-    return { getLogger, createService, createDataLogger };
+    throw new Error('createProviderFactory not implemented');
 };

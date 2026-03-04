@@ -1,6 +1,6 @@
 import { MonitoringStrategy } from '../interfaces/monitoringStrategy';
-import { SystemMetrics } from '../interfaces/systemMetrics';
-import { CreateSystemDto } from '../dto/createSystem';
+import { ServiceMetrics } from '../interfaces/serviceMetrics';
+import { StartMonitoringRequest } from '../validators/createSystem';
 import { Logger } from '../interfaces/logger';
 
 // ---------------------------------------------------------------------------
@@ -22,12 +22,12 @@ export interface MetricsServiceProps {
  * MetricsService — the public API surface of the service layer.
  *
  * Developer MUST implement:
- *  - initSystem: store the dto config so /connect can access it during metric cycles
+ *  - initService: store the dto config so /connect can access it during metric cycles
  *  - collectMetrics: call strategy methods to build a SystemMetrics snapshot
  */
 export interface MetricsService {
-    initSystem(dto: CreateSystemDto): void;
-    collectMetrics(): Promise<SystemMetrics>;
+    initService(dto: StartMonitoringRequest): void;
+    collectMetrics(): Promise<ServiceMetrics>;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,25 +35,20 @@ export interface MetricsService {
 // ---------------------------------------------------------------------------
 
 /**
- * createMetricsService — factory that wires MetricsService with its props.
+ * createMetricsService — factory that wires MetricsService with its dependencies.
  *
- * No business logic here — only the shape of the returned object.
+ * Developer MUST implement:
+ *  - Store `dto` (from initService) in a closure-scoped variable so collectMetrics
+ *    can access the config during metric collection cycles
+ *  - initService: call service.initService(dto) to store the system config
+ *  - collectMetrics: call strategy.getCpu(), getMemory(), getDisk() and build
+ *    a ServiceMetrics snapshot with the current timestamp
  *
- * @param props - Injected strategy + logger
+ * @param strategy - Injected MonitoringStrategy (local or db)
+ * @param logger   - Injected Logger instance (obtained from factory.getLogger())
  */
-export const createMetricsService = (props: MetricsServiceProps): MetricsService => {
-    const initSystem = (_dto: CreateSystemDto): void => {
-        // TODO: store dto config (e.g., in closure-scoped variable)
-        void props;
-        throw new Error('metricsService.initSystem not implemented');
-    };
-
-    const collectMetrics = async (): Promise<SystemMetrics> => {
-        // TODO: call props.strategy.getCpu(), getMemory(), getDisk()
-        // TODO: build and return a SystemMetrics object with the current timestamp
-        void props;
-        throw new Error('metricsService.collectMetrics not implemented');
-    };
-
-    return { initSystem, collectMetrics };
+export const createMetricsService = ({ strategy, logger }: MetricsServiceProps): MetricsService => {
+    void strategy;
+    void logger;
+    throw new Error('createMetricsService not implemented');
 };

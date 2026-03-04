@@ -1,4 +1,4 @@
-import { Logger } from './interfaces/logger';
+import { Logger } from '../interfaces/logger';
 
 /**
  * FileLogger — concrete implementation placeholder.

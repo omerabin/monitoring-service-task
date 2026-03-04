@@ -3,7 +3,7 @@ import { Response } from 'express';
 /**
  * Represents the type of metric object being monitored over SSE.
  */
-export type ObjectType = 'cpu' | 'memory' | 'disk';
+export type ResourceType = 'cpu' | 'memory' | 'disk';
 
 /**
  * Describes a single active SSE connection session.
@@ -11,13 +11,12 @@ export type ObjectType = 'cpu' | 'memory' | 'disk';
  * Developer must:
  *  - Generate a UUID (v4) per connection and store it as sessionId.
  *  - Hold a reference to the Express Response object for streaming.
- *  - Track the objectType and minAlert threshold for this session.
+ *  - Track the resourceType being monitored for this session.
  *  - Clean up this session on client disconnect.
  */
 export interface SseSession {
     sessionId: string;
-    objectType: ObjectType;
-    minAlert: number;
+    resourceType: ResourceType;
     res: Response;
 }
 

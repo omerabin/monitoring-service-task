@@ -1,16 +1,25 @@
 import { Router } from 'express';
+import { ProviderFactory } from '../factories/providerFactory';
 import { MetricsController } from '../controllers/metricsController';
+import { SseSessionMap } from '../types/sse';
+import { validator } from '../middleware/validator';
+import { StartMonitoringRequestSchema } from '../validators/createSystem';
+import { ConnectParamsSchema } from '../validators/connectParams';
+
+// ---------------------------------------------------------------------------
+// Route Definitions
+// ---------------------------------------------------------------------------
 
 /**
  * createMetricsRouter — wires the /metrics route group.
  *
  * Routes:
  *  POST /start
- *    → Body: CreateSystemDto
+ *    → Body: StartMonitoringRequest
  *    → Initialises the system configuration; must be called before /connect.
  *
- *  POST /connect/:objectType/:minAlert
- *    → Params: objectType ('cpu' | 'memory' | 'disk'), minAlert (number)
+ *  POST /connect/:resourceType
+ *    → Params: resourceType ('cpu' | 'memory' | 'disk')
  *    → Opens an SSE stream for the requested metric type.
  *    → Validates that /start has been called (error handled by error middleware).
  *    → Enforces max 5 concurrent connections (error handled by error middleware).
@@ -22,9 +31,36 @@ import { MetricsController } from '../controllers/metricsController';
 export const createMetricsRouter = (controller: MetricsController): Router => {
     const router = Router();
 
-    router.post('/start', controller.start);
+    // validator() acts as a per-route decorator (NestJS-style pipe):
+    // it parses and validates the request before the handler runs.
+    router.post('/start', validator(StartMonitoringRequestSchema, 'body'), controller.start);
 
-    router.post('/connect/:objectType/:minAlert', controller.connect);
+    router.post('/connect/:resourceType', validator(ConnectParamsSchema, 'params'), controller.connect);
 
     return router;
+};
+
+// ---------------------------------------------------------------------------
+// Initializer (called by app.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * initMetricsRouter — composes the controller then the router and returns both.
+ *
+ * Developer MUST implement this function:
+ *  - Call initMetricsController(factory, sessions) to get a wired controller
+ *  - Call createMetricsRouter(controller) to get the Express Router
+ *  - Return the router so app.ts can register it
+ *
+ * This is the single entry point from app.ts into the metrics feature.
+ * app.ts should only call this function and mount the returned router.
+ *
+ * @param factory  - The shared ProviderFactory instance (from app.ts DI root)
+ * @param sessions - The shared SseSessionMap registry (from app.ts)
+ */
+export const initMetricsRouter = (
+    _factory: ProviderFactory,
+    _sessions: SseSessionMap
+): Router => {
+    throw new Error('initMetricsRouter not implemented');
 };
