@@ -63,17 +63,49 @@ export const METRICS_INTERVAL_MS = 30_000;
  *  - Generate a UUID (v4) for the session
  *  - Set SSE response headers (Content-Type: text/event-stream, etc.)
  *  - Register the session in sessions
- *  - Retrieve a fresh LoggerDataProvider via factory.createDataLogger()
- *  - Set up a setInterval (METRICS_INTERVAL_MS) to:
- *      1. Call service.collectMetrics()
- *      2. Stream result via res.write(`data: ${JSON.stringify(metrics)}\n\n`)
- *      3. Write to file via loggerDataProvider
+ *  - Wire the Observer pattern (see below) before starting the interval
+ *  - Set up a setInterval (METRICS_INTERVAL_MS) to trigger subject.notify()
  *  - On client disconnect (req.on('close', ...)):
  *      1. Clear the interval
- *      2. Delete the session from sessions
+ *      2. Detach all observers from the subject
+ *      3. Delete the session from sessions
+ *
+ * ── Observer Pattern ────────────────────────────────────────────────────────
+ *
+ * The `connect` handler MUST use the Observer pattern (see interfaces/observer.ts)
+ * to decouple metric broadcasting from file logging.
+ *
+ * Roles:
+ *  - Subject<ServiceMetrics>  — the metric emitter, triggered on each interval tick.
+ *                               Holds a list of attached observers and calls update()
+ *                               on each of them when new metrics are collected.
+ *
+ *  - Observer #1 (SSE writer) — streams the metrics snapshot to the HTTP response:
+ *                               res.write(`data: ${JSON.stringify(metrics)}\n\n`)
+ *
+ *  - Observer #2 (file logger)— writes the snapshot to the session log file via
+ *                               the LoggerDataProvider obtained from factory.createDataLogger()
+ *
+ * Wiring:
+ *  1. Create a Subject<ServiceMetrics> instance (your own implementation)
+ *  2. Implement two Observer<ServiceMetrics> objects (one for SSE, one for logging)
+ *  3. Call subject.attach(sseObserver) and subject.attach(loggerObserver)
+ *  4. Inside the setInterval callback:
+ *       a. Call service.collectMetrics() to get a fresh snapshot
+ *       b. Store the snapshot on the subject
+ *       c. Call subject.notify() — this triggers both observers automatically
+ *  5. On disconnect, call subject.detach(sseObserver) and subject.detach(loggerObserver)
+ *
+ * Why Observer here?
+ *  The controller should not know HOW metrics are consumed — only that they are
+ *  produced. Adding a new consumer (e.g., alerting, DB writes) requires zero
+ *  changes to the controller: just attach another observer.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
  *
  * The function should accept a MetricsControllerProps object and return a MetricsController.
  */
+
 
 
 // ---------------------------------------------------------------------------
