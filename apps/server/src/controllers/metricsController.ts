@@ -10,7 +10,7 @@ import { MonitoringTarget } from '../interfaces/monitoringStrategy';
 /**
  * MetricsControllerProps — all dependencies injected into the controller.
  *
- * Logger is NOT injected separately — use factory.getLogger() instead.
+ * Logger is NOT injected separately — access via factory.getLoggerDataProvider().getLogger().
  *
  * The controller creates the MetricsService internally via the factory,
  * so it does not need to receive a pre-built service from the outside.

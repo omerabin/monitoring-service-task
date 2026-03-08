@@ -14,7 +14,7 @@ The service exposes two HTTP routes:
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/metrics/start` | POST | Initialise the system with CPU/memory/disk config |
+| `/metrics/start` | POST | Initialize the service with CPU/memory/disk config |
 | `/metrics/connect/:resourceType` | POST | Open an SSE stream for a given metric type |
 
 ---
@@ -22,7 +22,7 @@ The service exposes two HTTP routes:
 ## What You MUST Implement
 
 ### Core Logic
-- [ ] **`FileLogger`** (`src/logger.ts`) — write `[INFO/WARN/ERROR] <ISO timestamp> <message>` to a file. No `console.log` anywhere.
+- [ ] **`FileLogger`** (`src/logger.ts`) — write `[DEBUG/INFO/WARN/ERROR] <ISO timestamp> <message>` to a file. No `console.log` anywhere.
 - [ ] **`LocalMonitoringStrategy`** (`src/factories/providerFactory.ts`) — use Node's `os` module to read real CPU, memory, and disk usage.
 - [ ] **`DbMonitoringStrategy`** (`src/factories/providerFactory.ts`) — return random float values (0–100) simulating a remote DB source.
 - [ ] **`LoggerDataProvider`** (`src/factories/providerFactory.ts`) — write metric events to a session-scoped file (`logs/<sessionId>.log`).
@@ -55,7 +55,7 @@ The service exposes two HTTP routes:
 - Never leak stack traces to clients in production.
 
 ### Observer Pattern
-- Implement `Observer<SystemMetrics>` and `Subject<SystemMetrics>` (defined in `src/interfaces/observer.ts`).
+- Implement `Observer<ServiceMetrics>` and `Subject<ServiceMetrics>` (defined in `src/interfaces/observer.ts`).
 - Wire SSE clients as observers on the metrics subject.
 - `notify()` dispatches to all attached observers — one per SSE session.
 

@@ -9,12 +9,14 @@ import { HttpError, ErrorCode } from '../errors/HttpError';
  * Developer MUST implement the returned Express error handler:
  *  - If `err` is a ZodError → respond 400 with structured field-level issues
  *    and code ErrorCode.VALIDATION_ERROR
- *  - If `err` is an HttpError → log it via `logger`, respond with err.statusCode
- *    and JSON: { error: err.message, code?: string }
- *  - Otherwise → log as unexpected error, respond 500
+ *  - If `err` is an HttpError → log it via `logger.error(...)` to console,
+ *    respond with err.statusCode and JSON: { error: err.message, code?: string }
+ *  - Otherwise → log as unexpected error via `logger.error(...)` to console, respond 500
  *  - Never leak stack traces to the client in production
  *
- * @param logger - Injected Logger implementation (no console.log)
+ * @param logger - Injected console-backed Logger (NOT FileLogger).
+ *                 All error logging here goes to console via logger.error().
+ *                 FileLogger is only for info-level metric data in the data provider.
  */
 export const createErrorMiddleware = ({ logger }: { logger: Logger }) => {
     void logger;
