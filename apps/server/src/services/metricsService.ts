@@ -1,6 +1,5 @@
 import { MonitoringStrategy } from '../interfaces/monitoringStrategy';
 import { ServiceMetrics } from '../interfaces/serviceMetrics';
-import { StartMonitoringRequest } from '../validators/createSystem';
 import { Logger } from '../interfaces/logger';
 
 // ---------------------------------------------------------------------------
@@ -22,11 +21,9 @@ export interface MetricsServiceProps {
  * MetricsService — the public API surface of the service layer.
  *
  * Developer MUST implement:
- *  - initService: store the dto config so /connect can access it during metric cycles
  *  - collectMetrics: call strategy methods to build a SystemMetrics snapshot
  */
 export interface MetricsService {
-    initService(dto: StartMonitoringRequest): void;
     collectMetrics(): Promise<ServiceMetrics>;
 }
 
@@ -38,9 +35,6 @@ export interface MetricsService {
  * createMetricsService — factory that wires MetricsService with its dependencies.
  *
  * Developer MUST implement:
- *  - Store `dto` (from initService) in a closure-scoped variable so collectMetrics
- *    can access the config during metric collection cycles
- *  - initService: call service.initService(dto) to store the system config
  *  - collectMetrics: call strategy.getCpu(), getMemory(), getDisk() and build
  *    a ServiceMetrics snapshot with the current timestamp
  *

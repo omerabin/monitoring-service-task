@@ -10,11 +10,8 @@
 
 This project tests your ability to implement a production-quality monitoring service following strict architectural rules. The skeleton gives you the structure. Your job is to fill in every `TODO` without violating the constraints below.
 
-The service exposes two HTTP routes:
+The service exposes the following HTTP route:
 
-| Route | Method | Purpose |
-|---|---|---|
-| `/metrics/start` | POST | Initialise the system with CPU/memory/disk config |
 | `/metrics/connect/:resourceType` | POST | Open an SSE stream for a given metric type |
 
 ---
@@ -22,21 +19,16 @@ The service exposes two HTTP routes:
 ## What You MUST Implement
 
 ### Core Logic
-- [ ] **`FileLogger`** (`src/logger.ts`) — write `[INFO/WARN/ERROR] <ISO timestamp> <message>` to a file. No `console.log` anywhere.
+- [ ] **`FileLogger`** (`src/logger.ts`) — write `[DEBUG/INFO/WARN/ERROR] <ISO timestamp> <message>` to a file. No `console.log` anywhere.
 - [ ] **`LocalMonitoringStrategy`** (`src/factories/providerFactory.ts`) — use Node's `os` module to read real CPU, memory, and disk usage.
 - [ ] **`DbMonitoringStrategy`** (`src/factories/providerFactory.ts`) — return random float values (0–100) simulating a remote DB source.
 - [ ] **`LoggerDataProvider`** (`src/factories/providerFactory.ts`) — write metric events to a session-scoped file (`logs/<sessionId>.log`).
-- [ ] **`metricsService.initService`** (`src/services/metricsService.ts`) — store the `StartMonitoringRequest` for later use during metric collection intervals.
 - [ ] **`metricsService.collectMetrics`** (`src/services/metricsService.ts`) — call `strategy.getCpu()`, `strategy.getMemory()`, `strategy.getDisk()`, and return a `SystemMetrics` object.
 - [ ] **Wire `createMetricsService`** inside `createMetricsController` — remove the throw and inject the service properly.
 
-### `metricsController.start`
-- Parse and validate `StartMonitoringRequest` from `req.body`.
-- Call `service.initService(dto)`.
-- Respond `200 { message: 'System started' }`.
+
 
 ### `metricsController.connect`
-- **Validate** that `/start` has been called. If not, call `next(new AppError('...', 400))` with `ErrorCode.SYSTEM_NOT_STARTED`.
 - **Enforce max 5 connections**. If `sessions.size >= MAX_SSE_CONNECTIONS`, call `next(new AppError('...', 429))` with `ErrorCode.MAX_CONNECTIONS_EXCEEDED`.
 - `req.params.resourceType` is **already validated** as a `ResourceType` by the upstream `validator(ConnectParamsSchema, 'params')` middleware.
 - **Generate a UUID** (v4) for the session.
@@ -55,7 +47,7 @@ The service exposes two HTTP routes:
 - Never leak stack traces to clients in production.
 
 ### Observer Pattern
-- Implement `Observer<SystemMetrics>` and `Subject<SystemMetrics>` (defined in `src/interfaces/observer.ts`).
+- Implement `Observer<ServiceMetrics>` and `Subject<ServiceMetrics>` (defined in `src/interfaces/observer.ts`).
 - Wire SSE clients as observers on the metrics subject.
 - `notify()` dispatches to all attached observers — one per SSE session.
 
@@ -74,7 +66,6 @@ The service exposes two HTTP routes:
 | Observer for SSE | Each SSE session is an `Observer<SystemMetrics>` |
 | Session isolation | Every SSE connection has its own UUID and log file |
 | Max connections | Hard limit of 5 concurrent SSE sessions (enforced in controller) |
-| Validate `/start` | `/connect` must throw if `/start` was never called |
 | SOLID principles | Single responsibility, open/closed, dependency inversion everywhere |
 
 ---
@@ -105,23 +96,7 @@ npm run build
 
 ## API Reference
 
-### `POST /metrics/start`
 
-**Body**
-```json
-{
-  "cpu":    { "cores": 8, "threads": 16, "frequencyGHz": 3.6, "usagePercentage": 0 },
-  "memory": { "totalGb": 32, "usedGb": 0, "usagePercentage": 0 },
-  "disk":   { "totalGb": 512, "usedGb": 0, "usagePercentage": 0 }
-}
-```
-
-**Response** `200 OK`
-```json
-{ "message": "System started" }
-```
-
----
 
 ### `POST /metrics/connect/:resourceType`
 
@@ -135,7 +110,6 @@ data: {"cpu":{...},"memory":{...},"disk":{...},"timestamp":"..."}
 
 **Error responses (JSON)**
 ```json
-{ "error": "System not started. Call /start first.", "code": "SYSTEM_NOT_STARTED" }
 { "error": "Maximum SSE connections reached (5).", "code": "MAX_CONNECTIONS_EXCEEDED" }
 { "error": [{"code": "invalid_enum_value", "path": ["resourceType"], "message": "..."}], "code": "VALIDATION_ERROR" }
 ```
@@ -160,17 +134,16 @@ apps/server/src/
 ├── server.ts                     ← HTTP server entry point
 ├── logger.ts                     ← FileLogger class (implement me)
 ├── controllers/
-│   └── metricsController.ts      ← start + connect handlers (implement me)
+│   └── metricsController.ts      ← connect handler (implement me)
 ├── services/
-│   └── metricsService.ts         ← initService + collectMetrics (implement me)
+│   └── metricsService.ts         ← collectMetrics (implement me)
 ├── factories/
 │   └── providerFactory.ts        ← strategies + logger provider (implement me)
 ├── routes/
-│   └── metrics.ts                ← POST /start, POST /connect/:resourceType
+│   └── metrics.ts                ← POST /connect/:resourceType
 ├── middleware/
 │   └── error.ts                  ← error handler (implement me)
-├── dto/
-│   ├── startMonitoring.ts           ← StartMonitoringRequest
+
 ├── interfaces/
 │   ├── cpu.ts                    ← CpuConfig
 │   ├── memory.ts                 ← MemoryConfig
@@ -183,7 +156,6 @@ apps/server/src/
 │   ├── cpuConfig.validator.ts        ← Zod schema for CpuConfig
 │   ├── memoryConfig.validator.ts     ← Zod schema for MemoryConfig
 │   ├── diskConfig.validator.ts       ← Zod schema for DiskConfig
-│   ├── createSystem.validator.ts     ← Zod schema for POST /start body
 │   └── connectParams.validator.ts   ← Zod schema for POST /connect/:resourceType params
 └── types/
     └── sse.ts                    ← SseSession, SseSessionMap, ResourceType

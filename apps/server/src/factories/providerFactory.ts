@@ -11,13 +11,21 @@
  * Developer MUST design and implement `createProviderFactory`.
  *
  * Rules:
- *  - getLogger()        → return the shared application-level Logger instance.
- *                         Instantiate it once inside the factory (e.g. new FileLogger()).
- *  - createService(target) → return the appropriate MonitoringStrategy by target key.
- *                            Instantiate both strategies once; select by target.
- *                            Services consume MonitoringStrategy without knowing the source.
- *  - createDataLogger() → return a fresh LoggerDataProvider for each new SSE session.
- *                         Call createLoggerDataProvider() (from providers/) each time.
+ *  - getLoggerDataProvider() → return the LoggerDataProvider for the current session.
+ *                              The Logger (console-backed) is accessed via:
+ *                                factory.getLoggerDataProvider().getLogger()
+ *                              Do NOT expose getLogger() directly on the factory.
+ *                              Instantiate the LoggerDataProvider once inside the factory.
+ *  - createService(target)   → return the appropriate MonitoringStrategy by target key.
+ *                              Instantiate both strategies once; select by target.
+ *                              Services consume MonitoringStrategy without knowing the source.
+ *  - createDataLogger()      → return a fresh LoggerDataProvider for each new SSE session.
+ *                              Call createLoggerDataProvider() (from providers/) each time.
+ *
+ * Logger semantics:
+ *  - The console-backed Logger (for errors/warnings) is accessed via:
+ *      factory.getLoggerDataProvider().getLogger()
+ *  - The FileLogger (info-level metric data only) is used internally by LoggerDataProvider.
  */
 export interface ProviderFactory {
 }
@@ -31,7 +39,7 @@ export interface ProviderFactory {
  *
  * Developer MUST implement this function following the rules above.
  * All strategies and the logger should be instantiated inside this factory
- * so app.ts only needs to call createProviderFactory() once.
+ * so server.ts only needs to call createProviderFactory() once.
  */
 export const createProviderFactory = (): ProviderFactory => {
     throw new Error('createProviderFactory not implemented');
