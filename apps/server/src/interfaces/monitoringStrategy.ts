@@ -17,7 +17,7 @@ export interface MonitoringStrategy {
  * Concrete implementation must write entries to a session-scoped log file.
  */
 export interface LoggerDataProvider {
-    log(sessionId: string, data: string): void;
+    log(data: string): void;
 }
 
 /**

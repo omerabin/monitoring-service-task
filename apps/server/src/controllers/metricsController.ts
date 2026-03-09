@@ -1,104 +1,76 @@
 import { Request, Response, NextFunction } from 'express';
 import { ProviderFactory } from '../factories/providerFactory';
-import { SseSessionMap } from '../types/sse';
+import { SseSessionMap, SessionIdSchema } from '../types/sse';
 import { MonitoringTarget } from '../interfaces/monitoringStrategy';
+import { createMetricsService } from '../services/metricsService';
+import { HttpError, ErrorCode, HttpStatusCode } from '../errors/HttpError';
+import { v4 as uuidv4 } from 'uuid';
+import { openSseConnection } from '../utils/SseConnection';
+import { ConnectParamsSchema } from '../validators/connectParams';
 
 // ---------------------------------------------------------------------------
 // Props & Interface
 // ---------------------------------------------------------------------------
+const MAX_SSE_CONNECTIONS = 5;
 
-/**
- * MetricsControllerProps — all dependencies injected into the controller.
- *
- * Logger is NOT injected separately — access via factory.getLoggerDataProvider().getLogger().
- *
- * The controller creates the MetricsService internally via the factory,
- * so it does not need to receive a pre-built service from the outside.
- */
 export interface MetricsControllerProps {
     factory: ProviderFactory;
-    /** Shared SSE session registry — enforces the max 5 connections rule */
     sessions: SseSessionMap;
-    /** Strategy target: 'local' (OS) or 'db' (fake generator) */
     monitoringTarget: MonitoringTarget;
 }
 
-/**
- * MetricsController — the public handler surface exposed to the router.
- */
 export interface MetricsController {
     connect(req: Request, res: Response, next: NextFunction): void;
 }
 
 // ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-/** Maximum number of concurrent SSE sessions allowed. */
-export const MAX_SSE_CONNECTIONS = 5;
-
-/** Interval in milliseconds at which metrics are sampled and logged. */
-export const METRICS_INTERVAL_MS = 30_000;
-
-// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
-/**
- * createMetricsController — wires the controller with its injected dependencies.
- *
- * Developer MUST define this function and implement:
- *
- * `connect` handler:
- *  - Enforce MAX_SSE_CONNECTIONS
- *    → If exceeded, call next(new HttpError('...', 429)) with ErrorCode.MAX_CONNECTIONS_EXCEEDED
- *  - Generate a UUID (v4) for the session
- *  - Set SSE response headers (Content-Type: text/event-stream, etc.)
- *  - Register the session in sessions
- *  - Wire the Observer pattern (see below) before starting the interval
- *  - Set up a setInterval (METRICS_INTERVAL_MS) to trigger subject.notify()
- *  - On client disconnect (req.on('close', ...)):
- *      1. Clear the interval
- *      2. Detach all observers from the subject
- *      3. Delete the session from sessions
- *
- * ── Observer Pattern ────────────────────────────────────────────────────────
- *
- * The `connect` handler MUST use the Observer pattern (see interfaces/observer.ts)
- * to decouple metric broadcasting from file logging.
- *
- * Roles:
- *  - Subject<ServiceMetrics>  — the metric emitter, triggered on each interval tick.
- *                               Holds a list of attached observers and calls update()
- *                               on each of them when new metrics are collected.
- *
- *  - Observer #1 (SSE writer) — streams the metrics snapshot to the HTTP response:
- *                               res.write(`data: ${JSON.stringify(metrics)}\n\n`)
- *
- *  - Observer #2 (file logger)— writes the snapshot to the session log file via
- *                               the LoggerDataProvider obtained from factory.createDataLogger()
- *
- * Wiring:
- *  1. Create a Subject<ServiceMetrics> instance (your own implementation)
- *  2. Implement two Observer<ServiceMetrics> objects (one for SSE, one for logging)
- *  3. Call subject.attach(sseObserver) and subject.attach(loggerObserver)
- *  4. Inside the setInterval callback:
- *       a. Call service.collectMetrics() to get a fresh snapshot
- *       b. Store the snapshot on the subject
- *       c. Call subject.notify() — this triggers both observers automatically
- *  5. On disconnect, call subject.detach(sseObserver) and subject.detach(loggerObserver)
- *
- * Why Observer here?
- *  The controller should not know HOW metrics are consumed — only that they are
- *  produced. Adding a new consumer (e.g., alerting, DB writes) requires zero
- *  changes to the controller: just attach another observer.
- *
- * ────────────────────────────────────────────────────────────────────────────
- *
- * The function should accept a MetricsControllerProps object and return a MetricsController.
- */
+export const createMetricsController = ({
+    factory,
+    sessions,
+    monitoringTarget,
+}: MetricsControllerProps): MetricsController => {
+    const logger = factory.getLoggerDataProvider().getLogger();
+    const strategy = factory.createService(monitoringTarget);
+    const service = createMetricsService({ strategy, logger });
 
+    return {
+        connect: (req: Request, res: Response, next: NextFunction): void => {
+            if (sessions.size >= MAX_SSE_CONNECTIONS) {
+                next(new HttpError(
+                    `Maximum SSE connections reached (${MAX_SSE_CONNECTIONS}).`,
+                    HttpStatusCode[ErrorCode.MAX_CONNECTIONS_EXCEEDED],
+                ));
+                return;
+            }
 
+            const resourceTypeResult = ConnectParamsSchema.safeParse(req.params);
+            if (!resourceTypeResult.success) {
+                next(new HttpError('Invalid resource type. Must be one of: cpu, memory, disk.', 400));
+                return;
+            }
+
+            const sessionIdResult = SessionIdSchema.safeParse(uuidv4());
+            if (!sessionIdResult.success) {
+                next(new HttpError('Failed to generate valid session ID.', 500, false));
+                return;
+            }
+
+            openSseConnection({
+                req,
+                res,
+                sessionId: sessionIdResult.data,
+                resourceType: resourceTypeResult.data.resourceType,
+                sessions,
+                service,
+                loggerDataProvider: factory.createDataLogger(sessionIdResult.data),
+                logger,
+            });
+        },
+    };
+};
 
 // ---------------------------------------------------------------------------
 // Initializer (called by routes/metrics.ts)
@@ -107,20 +79,26 @@ export const METRICS_INTERVAL_MS = 30_000;
 /**
  * initMetricsController — composes and returns a ready-to-use MetricsController.
  *
- * Developer MUST implement this function:
- *  - Read MONITORING_TARGET from process.env (default: 'local')
- *  - Call createMetricsController({ factory, sessions, monitoringTarget })
- *  - Return the resulting controller
- *
- * This function is the single call-site that wires dependencies into the controller.
- * It is called from routes/metrics.ts — not from app.ts directly.
- *
- * @param factory  - The shared ProviderFactory instance
- * @param sessions - The shared SseSessionMap registry
+ * Reads MONITORING_TARGET from process.env (default: 'local').
+ * Warns if an unrecognised value is supplied so misconfiguration is visible in logs.
  */
 export const initMetricsController = (
-    _factory: ProviderFactory,
-    _sessions: SseSessionMap
+    factory: ProviderFactory,
+    sessions: SseSessionMap,
 ): MetricsController => {
-    throw new Error('initMetricsController not implemented');
+    const logger = factory.getLoggerDataProvider().getLogger();
+    const raw = process.env['MONITORING_TARGET'] ?? 'local';
+
+    let target: MonitoringTarget;
+    if (raw === 'db' || raw === 'local') {
+        target = raw;
+    } else {
+        logger.warn(
+            `Unrecognised MONITORING_TARGET="${raw}" — falling back to "local". ` +
+            `Valid values are: local, db.`,
+        );
+        target = 'local';
+    }
+
+    return createMetricsController({ factory, sessions, monitoringTarget: target });
 };

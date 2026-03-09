@@ -1,33 +1,43 @@
-// import { MonitoringStrategy, LoggerDataProvider, MonitoringTarget } from '../interfaces/monitoringStrategy';
-// import { Logger } from '../interfaces/logger';
+import { MonitoringStrategy, LoggerDataProvider, MonitoringTarget } from '../interfaces/monitoringStrategy';
+import { Logger } from '../interfaces/logger';
+import { createLocalMonitoringStrategy } from '../strategies/localMonitoringStrategy';
+import { createDbMonitoringStrategy } from '../strategies/dbMonitoringStrategy';
+import { createLoggerDataProvider } from '../providers/loggerDataProvider';
 
 // ---------------------------------------------------------------------------
-// Provider Factory Interface
+// ConsoleLogger — console-backed Logger for errors/warnings (NOT FileLogger)
+// ---------------------------------------------------------------------------
+
+const createConsoleLogger = (): Logger => ({
+    debug: (message: string): void => {
+        process.stderr.write(`[DEBUG] ${new Date().toISOString()} ${message}\n`);
+    },
+    info: (message: string): void => {
+        process.stderr.write(`[INFO] ${new Date().toISOString()} ${message}\n`);
+    },
+    warn: (message: string): void => {
+        process.stderr.write(`[WARN] ${new Date().toISOString()} ${message}\n`);
+    },
+    error: (message: string): void => {
+        process.stderr.write(`[ERROR] ${new Date().toISOString()} ${message}\n`);
+    },
+});
+
+// ---------------------------------------------------------------------------
+// ProviderFactory Interface
 // ---------------------------------------------------------------------------
 
 /**
  * ProviderFactory — the DI composition root for all strategy and provider creation.
  *
- * Developer MUST design and implement `createProviderFactory`.
- *
- * Rules:
- *  - getLoggerDataProvider() → return the LoggerDataProvider for the current session.
- *                              The Logger (console-backed) is accessed via:
- *                                factory.getLoggerDataProvider().getLogger()
- *                              Do NOT expose getLogger() directly on the factory.
- *                              Instantiate the LoggerDataProvider once inside the factory.
- *  - createService(target)   → return the appropriate MonitoringStrategy by target key.
- *                              Instantiate both strategies once; select by target.
- *                              Services consume MonitoringStrategy without knowing the source.
- *  - createDataLogger()      → return a fresh LoggerDataProvider for each new SSE session.
- *                              Call createLoggerDataProvider() (from providers/) each time.
- *
- * Logger semantics:
- *  - The console-backed Logger (for errors/warnings) is accessed via:
- *      factory.getLoggerDataProvider().getLogger()
- *  - The FileLogger (info-level metric data only) is used internally by LoggerDataProvider.
+ *  - getLoggerDataProvider() → returns a fixed object with .getLogger() for the console Logger.
+ *  - createService(target)   → returns the appropriate MonitoringStrategy by target key.
+ *  - createDataLogger(sessionId) → creates a fresh LoggerDataProvider per SSE session.
  */
 export interface ProviderFactory {
+    getLoggerDataProvider(): { getLogger(): Logger };
+    createService(target: MonitoringTarget): MonitoringStrategy;
+    createDataLogger(sessionId: string): LoggerDataProvider;
 }
 
 // ---------------------------------------------------------------------------
@@ -37,10 +47,23 @@ export interface ProviderFactory {
 /**
  * createProviderFactory — builds and returns the application DI root.
  *
- * Developer MUST implement this function following the rules above.
- * All strategies and the logger should be instantiated inside this factory
- * so server.ts only needs to call createProviderFactory() once.
+ * Both strategies and the console Logger are instantiated once inside the closure.
+ * Server.ts calls this function once and passes the result down.
  */
 export const createProviderFactory = (): ProviderFactory => {
-    throw new Error('createProviderFactory not implemented');
+    const consoleLogger = createConsoleLogger();
+    const localStrategy = createLocalMonitoringStrategy();
+    const dbStrategy = createDbMonitoringStrategy();
+
+    return {
+        getLoggerDataProvider: () => ({
+            getLogger: (): Logger => consoleLogger,
+        }),
+
+        createService: (target: MonitoringTarget): MonitoringStrategy =>
+            target === 'db' ? dbStrategy : localStrategy,
+
+        createDataLogger: (sessionId: string): LoggerDataProvider =>
+            createLoggerDataProvider(sessionId),
+    };
 };

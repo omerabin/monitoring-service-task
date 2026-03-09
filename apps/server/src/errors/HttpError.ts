@@ -33,7 +33,7 @@ export const HttpStatusCode = {
     NOT_FOUND: 404,
     CONFLICT: 409,
     UNPROCESSABLE_ENTITY: 422,
-    TOO_MANY_REQUESTS: 429,
+    MAX_CONNECTIONS_EXCEEDED: 429,
     // 5xx Server Errors
     INTERNAL_SERVER_ERROR: 500,
     BAD_GATEWAY: 502,

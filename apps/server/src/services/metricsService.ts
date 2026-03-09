@@ -1,6 +1,7 @@
 import { MonitoringStrategy } from '../interfaces/monitoringStrategy';
 import { ServiceMetrics } from '../interfaces/serviceMetrics';
 import { Logger } from '../interfaces/logger';
+import { ResourceType } from '../validators/connectParams';
 
 // ---------------------------------------------------------------------------
 // Props & Interface
@@ -8,9 +9,6 @@ import { Logger } from '../interfaces/logger';
 
 /**
  * MetricsServiceProps — injected dependencies for the metrics service.
- *
- * Note: `logger` is obtained via `factory.getLogger()` at the call site
- * and passed in here so the service remains decoupled from the factory.
  */
 export interface MetricsServiceProps {
     strategy: MonitoringStrategy;
@@ -24,7 +22,7 @@ export interface MetricsServiceProps {
  *  - collectMetrics: call strategy methods to build a SystemMetrics snapshot
  */
 export interface MetricsService {
-    collectMetrics(): Promise<ServiceMetrics>;
+    collectMetrics(resourceType?: ResourceType): Promise<ServiceMetrics>;
 }
 
 // ---------------------------------------------------------------------------
@@ -34,15 +32,30 @@ export interface MetricsService {
 /**
  * createMetricsService — factory that wires MetricsService with its dependencies.
  *
- * Developer MUST implement:
- *  - collectMetrics: call strategy.getCpu(), getMemory(), getDisk() and build
- *    a ServiceMetrics snapshot with the current timestamp
+ * Calls strategy.getCpu(), getMemory(), getDisk() in parallel via Promise.all
+ * and returns a ServiceMetrics snapshot with the current timestamp.
  *
  * @param strategy - Injected MonitoringStrategy (local or db)
  * @param logger   - Injected Logger instance (obtained from factory.getLogger())
  */
-export const createMetricsService = ({ strategy, logger }: MetricsServiceProps): MetricsService => {
-    void strategy;
-    void logger;
-    throw new Error('createMetricsService not implemented');
-};
+export const createMetricsService = ({ strategy, logger }: MetricsServiceProps): MetricsService => ({
+    collectMetrics: async (): Promise<ServiceMetrics> => {
+        try {
+            const [cpuUsage, memoryUsage, diskUsage] = await Promise.all([
+                strategy.getCpu(),
+                strategy.getMemory(),
+                strategy.getDisk(),
+            ]);
+
+            return {
+                cpu: { usagePercentage: cpuUsage },
+                memory: { usagePercentage: memoryUsage },
+                disk: { usagePercentage: diskUsage },
+                timestamp: new Date().toISOString(),
+            };
+        } catch (err) {
+            logger.error(`collectMetrics failed: ${String(err)}`);
+            throw err;
+        }
+    },
+});

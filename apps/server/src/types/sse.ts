@@ -1,12 +1,6 @@
 import { z } from 'zod';
 import { Response } from 'express';
-import { ConnectParams } from '../validators/connectParams';
-
-/**
- * ResourceType — derived from the ConnectParams validator so there is a single
- * source of truth. The definition lives in validators/connectParams.ts.
- */
-export type ResourceType = ConnectParams['resourceType'];
+import { ResourceType } from '../validators/connectParams';
 
 /**
  * SessionId — UUID v4, validated by Zod.
