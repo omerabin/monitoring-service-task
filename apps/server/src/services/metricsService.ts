@@ -39,20 +39,25 @@ export interface MetricsService {
  * @param logger   - Injected Logger instance (obtained from factory.getLogger())
  */
 export const createMetricsService = ({ strategy, logger }: MetricsServiceProps): MetricsService => ({
-    collectMetrics: async (): Promise<ServiceMetrics> => {
+    collectMetrics: async (resourceType?: ResourceType): Promise<ServiceMetrics> => {
         try {
-            const [cpuUsage, memoryUsage, diskUsage] = await Promise.all([
-                strategy.getCpu(),
-                strategy.getMemory(),
-                strategy.getDisk(),
-            ]);
-
-            return {
-                cpu: { usagePercentage: cpuUsage },
-                memory: { usagePercentage: memoryUsage },
-                disk: { usagePercentage: diskUsage },
+            const metrics: ServiceMetrics = {
                 timestamp: new Date().toISOString(),
             };
+
+            const resourceToFetch: Record<ResourceType, () => Promise<void>> = {
+                cpu: async () => { metrics.cpu = await strategy.getCpu(); },
+                memory: async () => { metrics.memory = await strategy.getMemory(); },
+                disk: async () => { metrics.disk = await strategy.getDisk(); },
+            };
+
+            if (resourceType) {
+                await resourceToFetch[resourceType]();
+            } else {
+                await Promise.all(Object.values(resourceToFetch).map(handler => handler()));
+            }
+
+            return metrics;
         } catch (err) {
             logger.error(`collectMetrics failed: ${String(err)}`);
             throw err;

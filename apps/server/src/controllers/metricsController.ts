@@ -88,7 +88,6 @@ export const initMetricsController = (
 ): MetricsController => {
     const logger = factory.getLoggerDataProvider().getLogger();
     const raw = process.env['MONITORING_TARGET'] ?? 'local';
-
     let target: MonitoringTarget;
     if (raw === 'db' || raw === 'local') {
         target = raw;

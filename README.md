@@ -23,7 +23,7 @@ The service exposes the following HTTP route:
 - [ ] **`LocalMonitoringStrategy`** (`src/factories/providerFactory.ts`) — use Node's `os` module to read real CPU, memory, and disk usage.
 - [ ] **`DbMonitoringStrategy`** (`src/factories/providerFactory.ts`) — return random float values (0–100) simulating a remote DB source.
 - [ ] **`LoggerDataProvider`** (`src/factories/providerFactory.ts`) — write metric events to a session-scoped file (`logs/<sessionId>.log`).
-- [ ] **`metricsService.collectMetrics`** (`src/services/metricsService.ts`) — call `strategy.getCpu()`, `strategy.getMemory()`, `strategy.getDisk()`, and return a `SystemMetrics` object.
+- [ ] **`metricsService.collectMetrics`** (`src/services/metricsService.ts`) — call `strategy.getCpu()`, `strategy.getMemory()`, `strategy.getDisk()`, and return a `ServiceMetrics` object.
 - [ ] **Wire `createMetricsService`** inside `createMetricsController` — remove the throw and inject the service properly.
 
 
@@ -63,7 +63,7 @@ The service exposes the following HTTP route:
 | No circular deps | Interfaces only in shared layers; no cross-service imports |
 | No `console.log` | All output must go through `Logger` to file |
 | No `any` / `unknown` | Strict TypeScript throughout |
-| Observer for SSE | Each SSE session is an `Observer<SystemMetrics>` |
+| Observer for SSE | Each SSE session is an `Observer<ServiceMetrics>` |
 | Session isolation | Every SSE connection has its own UUID and log file |
 | Max connections | Hard limit of 5 concurrent SSE sessions (enforced in controller) |
 | SOLID principles | Single responsibility, open/closed, dependency inversion everywhere |

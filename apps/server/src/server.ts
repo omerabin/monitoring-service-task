@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { initExpress } from './app';
 import { createProviderFactory } from './factories/providerFactory';
 import { createErrorMiddleware } from './middleware/error';

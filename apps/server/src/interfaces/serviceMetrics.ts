@@ -10,8 +10,8 @@ import { DiskConfig } from '../validators/diskConfig';
  *  - 'db'    → each field contains the full hardware config
  */
 export interface ServiceMetrics {
-    cpu: CpuConfig;
-    memory: MemoryConfig;
-    disk: DiskConfig;
+    cpu?: CpuConfig;
+    memory?: MemoryConfig;
+    disk?: DiskConfig;
     timestamp: string;
 }
