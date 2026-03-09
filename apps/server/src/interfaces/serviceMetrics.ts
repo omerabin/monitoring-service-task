@@ -20,3 +20,6 @@
  *    timestamp: string;  // ISO 8601
  *  }
  */
+export interface ServiceMetrics {
+
+}

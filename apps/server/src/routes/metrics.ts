@@ -3,7 +3,6 @@ import { ProviderFactory } from '../factories/providerFactory';
 import { MetricsController } from '../controllers/metricsController';
 import { SseSessionMap } from '../types/sse';
 // import { validator } from '../middleware/validator';
-// import { StartMonitoringRequestSchema } from '../validators/createSystem'; // TODO: uncomment once schema is implemented
 // import { ConnectParamsSchema } from '../validators/connectParams';         // TODO: uncomment once schema is implemented
 
 // ---------------------------------------------------------------------------
@@ -14,14 +13,9 @@ import { SseSessionMap } from '../types/sse';
  * createMetricsRouter — wires the /metrics route group.
  *
  * Routes:
- *  POST /start
- *    → Body: StartMonitoringRequest
- *    → Initialises the system configuration; must be called before /connect.
- *
  *  POST /connect/:resourceType
  *    → Params: resourceType ('cpu' | 'memory' | 'disk')
  *    → Opens an SSE stream for the requested metric type.
- *    → Validates that /start has been called (error handled by error middleware).
  *    → Enforces max 5 concurrent connections (error handled by error middleware).
  *    → Assigns a UUID session to every new connection.
  *    → Streams metrics every 30 seconds and writes to session log file.
@@ -30,11 +24,6 @@ import { SseSessionMap } from '../types/sse';
  */
 export const createMetricsRouter = (controller: MetricsController): Router => {
     const router = Router();
-
-    // validator() acts as a per-route decorator (NestJS-style pipe):
-    // it parses and validates the request before the handler runs.
-    // TODO: add validator(StartMonitoringRequestSchema, 'body') once schema is implemented
-    router.post('/start', controller.start);
 
     // TODO: add validator(ConnectParamsSchema, 'params') once schema is implemented
     router.post('/connect/:resourceType', controller.connect);

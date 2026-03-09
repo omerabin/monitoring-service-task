@@ -46,12 +46,10 @@ export type HttpStatusCode = typeof HttpStatusCode[keyof typeof HttpStatusCode];
  * Well-known error codes used throughout the application.
  * Throw these (via HttpError) to trigger the correct HTTP response.
  *
- * SYSTEM_NOT_STARTED       — POST /connect called before POST /start
  * MAX_CONNECTIONS_EXCEEDED  — more than 5 concurrent SSE connections attempted
  * VALIDATION_ERROR          — request body or params failed Zod schema validation
  */
 export const ErrorCode = {
-    SYSTEM_NOT_STARTED: 'SYSTEM_NOT_STARTED',
     MAX_CONNECTIONS_EXCEEDED: 'MAX_CONNECTIONS_EXCEEDED',
     VALIDATION_ERROR: 'VALIDATION_ERROR',
 } as const;

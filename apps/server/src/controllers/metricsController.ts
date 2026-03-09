@@ -27,7 +27,6 @@ export interface MetricsControllerProps {
  * MetricsController — the public handler surface exposed to the router.
  */
 export interface MetricsController {
-    start(req: Request, res: Response, next: NextFunction): void;
     connect(req: Request, res: Response, next: NextFunction): void;
 }
 
@@ -50,14 +49,7 @@ export const METRICS_INTERVAL_MS = 30_000;
  *
  * Developer MUST define this function and implement:
  *
- * `start` handler:
- *  - Parse StartMonitoringRequest from req.body (already validated by middleware)
- *  - Call service.initService(dto) to store the system config
- *  - Respond 200 { message: 'System started' }
- *
  * `connect` handler:
- *  - Validate that /start has already been called
- *    → If not, call next(new HttpError('...', 400)) with ErrorCode.SYSTEM_NOT_STARTED
  *  - Enforce MAX_SSE_CONNECTIONS
  *    → If exceeded, call next(new HttpError('...', 429)) with ErrorCode.MAX_CONNECTIONS_EXCEEDED
  *  - Generate a UUID (v4) for the session
