@@ -1,9 +1,22 @@
 import { z } from 'zod';
 
-export const DiskConfigSchema = z.object({
+// ── LocalDiskConfigSchema (local OS monitoring) ───────────────────────────────
+// Only usagePercentage needed.
+
+export const LocalDiskConfigSchema = z.object({
+    usagePercentage: z.number().min(0).max(100),
+});
+export type LocalDiskConfig = z.infer<typeof LocalDiskConfigSchema>;
+
+// ── DbDiskConfigSchema (fake DB / remote monitoring) ─────────────────────────
+// Full disk config included.
+
+export const DbDiskConfigSchema = z.object({
     totalGb: z.number().positive(),
     usedGb: z.number().min(0),
     usagePercentage: z.number().min(0).max(100),
 });
+export type DbDiskConfig = z.infer<typeof DbDiskConfigSchema>;
 
-export type DiskConfig = z.infer<typeof DiskConfigSchema>;
+// ── Union ─────────────────────────────────────────────────────────────────────
+export type DiskConfig = LocalDiskConfig | DbDiskConfig;

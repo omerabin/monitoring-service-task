@@ -1,49 +1,36 @@
-import express, { Application } from 'express';
+import express, { Application, RequestHandler, ErrorRequestHandler } from 'express';
+import { ProviderFactory } from './factories/providerFactory';
+import { SseSessionMap } from './types/sse';
+import { initMetricsRouter } from './routes/metrics';
 
 /**
- * createApp — Express application factory and DI composition root.
+ * InitExpressParams — all injected components required to build the Express app.
  *
- * Developer MUST implement this function following the wiring graph below.
- * Do NOT add any business logic here — only composition.
- *
- * ── DI Wiring Graph ──────────────────────────────────────────────────────────
- *
- *   ProviderFactory          ← create via createProviderFactory() from factories/providerFactory
- *     ├─► Logger             ← accessible via factory.getLogger() — do NOT instantiate separately
- *     ├─► MonitoringStrategy ← per session via factory.createService(target)
- *     └─► LoggerDataProvider ← per session via factory.createDataLogger()
- *
- *   SseSessionMap            ← create a new Map<string, SseSession>() here
- *
- *   MetricsRouter            ← call initMetricsRouter(factory, sessions) from routes/metrics
- *                               initMetricsRouter internally wires:
- *                               factory + sessions → initMetricsController → createMetricsController
- *                                                  → createMetricsRouter
- *
- *   ErrorMiddleware          ← call createErrorMiddleware(...) from middleware/error
- *                               inject logger via factory.getLogger()
- *                               register LAST so Express routes it as error middleware (4-arg)
- *
- * ─────────────────────────────────────────────────────────────────────────────
+ * @param factory         - The shared ProviderFactory (DI root)
+ * @param sessions        - The shared SseSessionMap registry
+ * @param errorMiddleware - The error-handling middleware (registered LAST)
  */
-export const createApp = (): Application => {
+export interface InitExpressParams {
+    factory: ProviderFactory;
+    sessions: SseSessionMap;
+    errorMiddleware: ErrorRequestHandler;
+}
+
+/**
+ * initExpress — Express application factory and DI composition root.
+ */
+export const initExpress = ({ factory, sessions, errorMiddleware }: InitExpressParams): Application => {
     const app = express();
 
     // ── Middleware ─────────────────────────────────────────────────────────
     app.use(express.json());
 
-    // ── DI Root ───────────────────────────────────────────────────────────
-
-    // TODO: Create the shared SSE session registry
-
     // ── Routes ────────────────────────────────────────────────────────────
-
-    // TODO: Initialize and mount the metrics router
+    app.use('/metrics', initMetricsRouter(factory, sessions));
 
     // ── Error Middleware ───────────────────────────────────────────────────
-
-    // TODO: Register error middleware — must be last, inject logger via factory.getLogger()
-
+    // Must be registered LAST — Express identifies error handlers by their 4-arg signature
+    app.use(errorMiddleware as unknown as RequestHandler);
 
     return app;
 };

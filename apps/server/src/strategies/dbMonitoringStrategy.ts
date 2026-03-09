@@ -1,15 +1,39 @@
+import { MonitoringStrategy } from '../interfaces/monitoringStrategy';
+
+import { DbCpuConfig } from '../validators/cpuConfig';
+import { DbMemoryConfig } from '../validators/memoryConfig';
+import { DbDiskConfig } from '../validators/diskConfig';
+
 /**
- * DbMonitoringStrategy — returns fake/randomly-generated metric values.
+ * createDbMonitoringStrategy — returns random float values (0–100) simulating a remote DB source.
  *
- * Developer MUST design and implement the strategy pattern here.
- * The factory function must return a MonitoringStrategy object.
- *
- * Requirements:
- *  - getCpu()    → return a random float between 0–100
- *  - getMemory() → return a random float between 0–100
- *  - getDisk()   → return a random float between 0–100
- *
- * Each method must return a Promise<number>.
- * This strategy simulates a remote DB data source without real I/O.
  * The service layer is completely unaware that the values are synthetic.
  */
+export const createDbMonitoringStrategy = (): MonitoringStrategy => ({
+    getCpu: (): Promise<DbCpuConfig> => {
+        return Promise.resolve({
+            cores: 8,
+            threads: 16,
+            frequencyGHz: 3.5,
+            usagePercentage: Math.random() * 100
+        });
+    },
+    getMemory: (): Promise<DbMemoryConfig> => {
+        const totalGb = 32;
+        const usedGb = Math.random() * totalGb;
+        return Promise.resolve({
+            totalGb,
+            usedGb,
+            usagePercentage: (usedGb / totalGb) * 100
+        });
+    },
+    getDisk: (): Promise<DbDiskConfig> => {
+        const totalGb = 1024;
+        const usedGb = Math.random() * totalGb;
+        return Promise.resolve({
+            totalGb,
+            usedGb,
+            usagePercentage: (usedGb / totalGb) * 100
+        });
+    },
+});

@@ -1,37 +1,41 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { Logger } from '../interfaces/logger';
 
 /**
- * FileLogger — concrete implementation placeholder.
+ * FileLogger — writes info-level metric data to a session-scoped log file.
  *
- * Developer MUST implement:
- *  - Writing log entries to a session-scoped file (e.g., logs/<sessionId>.log)
- *  - Proper file stream management and cleanup on process exit
- *  - ISO timestamp prefix on every log line
- *  - No console.log — all output goes to file
+ * Only `info()` writes to the file. debug/warn/error are no-ops because those
+ * levels belong to the console-backed Logger used in the error middleware.
  *
- * The constructor may accept a session ID or log file path so that
- * each SSE session writes to its own isolated log file.
+ * Format: [INFO] <ISO-8601 timestamp> <message>
  */
 export class FileLogger implements Logger {
-    // TODO: inject a writable stream or file path via constructor
+    private readonly filePath: string;
 
-    debug(_message: string): void {
-        // TODO: write "[DEBUG] <timestamp> <message>" to log file
-        throw new Error('FileLogger.debug not implemented');
+    constructor(filePath: string) {
+        // Ensure the logs directory exists
+        const dir = path.dirname(filePath);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        this.filePath = filePath;
     }
 
-    info(_message: string): void {
-        // TODO: write "[INFO] <timestamp> <message>" to log file
-        throw new Error('FileLogger.info not implemented');
+    debug(_message: string): void {
+        // FileLogger does not handle debug — use the basic console Logger instead
+    }
+
+    info(message: string): void {
+        const line = `[INFO] ${new Date().toISOString()} ${message}\n`;
+        fs.appendFileSync(this.filePath, line, 'utf8');
     }
 
     warn(_message: string): void {
-        // TODO: write "[WARN] <timestamp> <message>" to log file
-        throw new Error('FileLogger.warn not implemented');
+        // FileLogger does not handle warn — use the basic console Logger instead
     }
 
     error(_message: string): void {
-        // TODO: write "[ERROR] <timestamp> <message>" to log file
-        throw new Error('FileLogger.error not implemented');
+        // Errors must NOT be written to file — use the console-backed Logger instead
     }
 }

@@ -1,21 +1,27 @@
+import { z } from 'zod';
 import { Response } from 'express';
+import { ResourceType } from '../validators/connectParams';
 
 /**
- * Represents the type of metric object being monitored over SSE.
+ * SessionId — UUID v4, validated by Zod.
+ * Developers must generate this with a UUID library (e.g., `uuid` v4) and
+ * validate/narrowing it through SessionIdSchema before storing in SseSession.
  */
-export type ResourceType = 'cpu' | 'memory' | 'disk';
+export const SessionIdSchema = z.string().uuid();
+export type SessionId = z.infer<typeof SessionIdSchema>;
 
 /**
  * Describes a single active SSE connection session.
  *
  * Developer must:
- *  - Generate a UUID (v4) per connection and store it as sessionId.
+ *  - Generate a UUID (v4) per connection, validate it with SessionIdSchema,
+ *    and store the result as sessionId.
  *  - Hold a reference to the Express Response object for streaming.
  *  - Track the resourceType being monitored for this session.
  *  - Clean up this session on client disconnect.
  */
 export interface SseSession {
-    sessionId: string;
+    sessionId: SessionId;
     resourceType: ResourceType;
     res: Response;
 }

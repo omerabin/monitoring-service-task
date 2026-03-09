@@ -1,11 +1,20 @@
-import { createApp } from './app';
+import 'dotenv/config';
+import { initExpress } from './app';
+import { createProviderFactory } from './factories/providerFactory';
+import { createErrorMiddleware } from './middleware/error';
+import { SseSessionMap } from './types/sse';
 
 const PORT = Number(process.env['PORT']) || 3000;
 
-const app = createApp();
+// Build the DI composition root
+const factory  = createProviderFactory();
+const sessions: SseSessionMap = new Map();
+const errorMiddleware = createErrorMiddleware({
+    logger: factory.getLoggerDataProvider().getLogger(),
+});
+
+const app = initExpress({ factory, sessions, errorMiddleware });
 
 app.listen(PORT, () => {
-    // Using process.stdout instead of console.log to respect no-console rule.
-    // Swap with logger.info once the logger is wired at server level if desired.
     process.stdout.write(`Server running on port ${PORT}\n`);
 });

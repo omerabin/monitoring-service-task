@@ -1,3 +1,7 @@
+import { CpuConfig } from '../validators/cpuConfig';
+import { MemoryConfig } from '../validators/memoryConfig';
+import { DiskConfig } from '../validators/diskConfig';
+
 /**
  * MonitoringStrategy interface.
  *
@@ -5,9 +9,9 @@
  * Services consume this interface without knowing the underlying source.
  */
 export interface MonitoringStrategy {
-    getCpu(): Promise<number>;
-    getMemory(): Promise<number>;
-    getDisk(): Promise<number>;
+    getCpu(): Promise<CpuConfig>;
+    getMemory(): Promise<MemoryConfig>;
+    getDisk(): Promise<DiskConfig>;
 }
 
 /**
@@ -17,7 +21,7 @@ export interface MonitoringStrategy {
  * Concrete implementation must write entries to a session-scoped log file.
  */
 export interface LoggerDataProvider {
-    log(sessionId: string, data: string): void;
+    log(data: string): void;
 }
 
 /**
