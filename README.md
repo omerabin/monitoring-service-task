@@ -10,7 +10,7 @@
 
 This project tests your ability to implement a production-quality monitoring service following strict architectural rules. The skeleton gives you the structure. Your job is to fill in every `TODO` without violating the constraints below.
 
-The service exposes two HTTP routes:
+The service exposes the following HTTP route:
 
 | `/metrics/connect/:resourceType` | POST | Open an SSE stream for a given metric type |
 
